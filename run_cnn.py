@@ -35,14 +35,14 @@ acel = np.zeros(0)
     
 # Read in data from CSV file for training
 for i in range(1,15):
-    temp = genfromtxt(path_to_data +str(3)+'.csv', delimiter=',')
+    temp = genfromtxt(path_to_data +str(i)+'.csv', delimiter=',')
     if (i == 1):
         acel = temp
     else:
         acel = np.concatenate((acel,temp))
 
 # Read in data from CSV file for testing
-acel_eval = genfromtxt(path_to_data + str(3)+'.csv', delimiter=',')
+acel_eval = genfromtxt(path_to_data + str(15)+'.csv', delimiter=',')
 
 # Get total length of time series
 dims = np.shape(acel)
