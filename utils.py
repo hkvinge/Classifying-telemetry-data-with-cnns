@@ -6,15 +6,16 @@ prefix = '/data3/darpa/tamu/'
 ccd = calcom.io.CCDataSet(prefix+'tamu_expts_01-27.h5')
 n_mice = len(ccd.data)
 
-def load_one(which='t', mode='chunk', window=1440, mouse_id=''):
+def load_one(which='t', window=1440, step=np.nan, mouse_id=''):
     '''
     Loads a timeseries.
 
     Inputs:
         which : String; 't' for temperature, 'a' for activity (default: 't')
-        mode : String; 'streaming' or 'chunk'. If 'streaming', a continuous sliding 
-            window is run across the data; with the windows overlapping.
-            If 'chunk', the windows do not overlap. (default: 'chunk')
+        step : Integer or nan-valued. This indicates the step taken in an individual 
+            timeseries before a new sample of size window is taken. If np.nan, 
+            then this defaults to the same value as window (i.e., timeseries are non-overlapping).
+            (default: np.nan)
         window : Integer; the size of the windows to be used in terms of 
                 array size. The underlying units are in minutes. (default: 1440, or one day)
         mouse_id : String; reference to a specific mouse. (default: empty string)
@@ -28,6 +29,7 @@ def load_one(which='t', mode='chunk', window=1440, mouse_id=''):
         If mouse_id is not specified, the global parameter _i is referenced 
         and the operations are applied on ccd.data[_i].
     '''
+    import numpy as np
 
     # get index pointing to appropriate datatype    
     datatype = {'t':0, 'a':1}[which]
@@ -42,20 +44,20 @@ def load_one(which='t', mode='chunk', window=1440, mouse_id=''):
 
     len_ts = len(tseries)
 
-    if mode=='chunk':
-        time_chunks = [ process_timeseries( tseries[ i*window : (i+1)*window ] ) for i in range(len_ts//window) ]
-    elif mode=='streaming':
-        pass
-    else:
-        raise ValueError('mode %s not recognized.'%str(mode))
-    #
+    if np.isnan(step):
+        step = window
+
+    nchunks = ( len(tseries) - window )//step +1
+
+    time_chunks = [ process_timeseries( tseries[ i*step : i*step + window ] ) for i in range(nchunks) ]
+
 
     time_chunks = np.vstack(time_chunks)
 
     return time_chunks
 #
 
-def load_all(which='t', mode='chunk', window=1440):
+def load_all(which='t', window=1440, step=np.nan):
     '''
     Loads all timeseries by repeatedly calling load_one iteratively.
 
@@ -65,14 +67,15 @@ def load_all(which='t', mode='chunk', window=1440):
         time_chunks : numpy array of dimension N-by-d, where the arrays 
             from each result are concatenated.
     '''
-    
+    import numpy as np    
+
     time_chunks_all = []
 
     for i in range(n_mice):
         time_chunks = load_one(
                             which=which,
-                            mode=mode,
-                            window=window, 
+                            window=window,
+                            step=step,
                             mouse_id=ccd.data[i].mouse_id.value
                         )
         time_chunks_all.append( time_chunks )
@@ -97,12 +100,15 @@ def process_timeseries(tseries_raw, nan_thresh=120,**kwargs):
     Inputs:
         tseries_raw: a numpy array shape (d,), possibly containing NaNs.
     Optional inputs:
+        nan_thresh: integer. If there are at least this many nans, nothing 
+            is done; instead an empty array of shape (0,d) is returned. (default: 120)
         verbosity: integer; 0 indicates no output. (default: 0)
     Outputs:
         tseries: a numpy array shape either (d,) or (0,d), depending on 
             whether the timeseries was thrown out for having too much 
             missing data.
     '''
+    import numpy as np
 
     verbosity = kwargs.get('verbosity',0)
 
