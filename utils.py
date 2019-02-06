@@ -109,7 +109,7 @@ def process_timeseries(tseries_raw, nan_thresh=120,**kwargs):
     d = len(tseries_raw)
     nnans = np.where(tseries_raw!=tseries_raw)[0]
 
-    if len(nnans) > nan_thresh:
+    if len(nnans) >= nan_thresh:
         if verbosity!=0:
             print('The timeseries has greater than %i NaNs; throwing it out.'%nan_thresh)
         return np.zeros( (0,d) )
