@@ -36,8 +36,21 @@ def load_one(which='t', mode='chunk', window=1440, mouse_id=''):
         return np.zeros( (0,window) )
     #
 
-    
-    
+    mid = ccd.find('mouse_id',mouse_id)[0]
+    dp = ccd.data[mid]
+    tseries = dp[datatype]
+
+    len_ts = len(tseries)
+
+    if mode=='chunk':
+        time_chunks = [ process_timeseries( tseries[ i*window : (i+1)*window ] ) for i in range(len_ts//window) ]
+    elif mode=='streaming':
+        pass
+    else:
+        raise ValueError('mode %s not recognized.'%str(mode))
+    #
+
+    time_chunks = np.vstack(time_chunks)
 
     return time_chunks
 #
@@ -142,10 +155,10 @@ def process_timeseries(tseries_raw, nan_thresh=120):
         #
         
         # Identify the tether points for the linear interpolation.
-        left = chunk[0] - 1
+        left = max(chunk[0] - 1, 0)
         fl = tseries[left]
 
-        right = chunk[-1] + 1
+        right = min(chunk[-1] + 1, len(tseries)-1)
         fr = tseries[right]
 
         m = (fr-fl)/(len(chunk) + 1)
