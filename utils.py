@@ -83,7 +83,7 @@ def load_all(which='t', mode='chunk', window=1440):
     return time_chunks
 #
 
-def process_timeseries(tseries_raw, nan_thresh=120):
+def process_timeseries(tseries_raw, nan_thresh=120,**kwargs):
     '''
     Applies preprocessing to a timeseries based on the rules:
 
@@ -96,17 +96,22 @@ def process_timeseries(tseries_raw, nan_thresh=120):
 
     Inputs:
         tseries_raw: a numpy array shape (d,), possibly containing NaNs.
+    Optional inputs:
+        verbosity: integer; 0 indicates no output. (default: 0)
     Outputs:
         tseries: a numpy array shape either (d,) or (0,d), depending on 
             whether the timeseries was thrown out for having too much 
             missing data.
     '''
 
+    verbosity = kwargs.get('verbosity',0)
+
     d = len(tseries_raw)
     nnans = np.where(tseries_raw!=tseries_raw)[0]
 
     if len(nnans) > nan_thresh:
-        print('The timeseries has greater than %i NaNs; throwing it out.'%nan_thresh)
+        if verbosity!=0:
+            print('The timeseries has greater than %i NaNs; throwing it out.'%nan_thresh)
         return np.zeros( (0,d) )
     #
 
