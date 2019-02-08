@@ -2,7 +2,7 @@
 import numpy as np
 
 import calcom
-prefix = '/data3/darpa/tamu/'
+prefix = '/Users/HK/Programming/Calcom/tamu/'
 ccd = calcom.io.CCDataSet(prefix+'tamu_expts_01-27.h5')
 n_mice = len(ccd.data)
 
