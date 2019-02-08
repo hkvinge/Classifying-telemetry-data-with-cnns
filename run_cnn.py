@@ -16,7 +16,7 @@ import utils
 tf.logging.set_verbosity(tf.logging.INFO)
 
 # Set length of time interval to investigate
-length = 200
+length = 500
 widths = 32
 channels = 1
 
@@ -40,8 +40,8 @@ numb_ex = dims[0]
 # Length of each time series
 length_ex = dims[1]
 # Get size of training set
-numb_train = round(.7*numb_ex)
-numb_test = round(.3*numb_ex)
+numb_train = round(.7*numb_ex-1)
+numb_test = round(.3*numb_ex-1)
 
 # Transpose temps and labels and then shuffle along first dimension
 # so that training/testing set will be new each time

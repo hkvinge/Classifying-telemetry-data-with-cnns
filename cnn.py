@@ -9,11 +9,19 @@ from convolution_functions import*
 
 def cnn_model_fn(features,labels,mode):
     """Model function for CNN."""
-    # This specifies the form of the input
-    input_layer = tf.reshape(features["x"],[-1,200,32,1])
 
-    print(input_layer.get_shape())   
- 
+    first_layer_shape = features["x"].get_shape().as_list()
+    #first_layer_shape = first_layer_shape.astype(np.int32)
+    width = int(first_layer_shape[3])
+    length = int(first_layer_shape[2])
+    batch = int(first_layer_shape[0])
+    print(first_layer_shape)
+
+    # This specifies the form of the input
+    input_layer = tf.reshape(features["x"],[batch,length,width,1])
+
+    print(input_layer.get_shape())
+
     # Convolutional Layer #1
     conv1 = tf.layers.conv2d(
         inputs=input_layer,
@@ -44,7 +52,7 @@ def cnn_model_fn(features,labels,mode):
     print(pool2.get_shape())
 
     # Dense layer
-    pool2_flat = tf.reshape(pool2,[-1,50*8*64])
+    pool2_flat = tf.reshape(pool2,[-1,int(length/4)*int(width/4)*64])
     dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
     dropout = tf.layers.dropout(
         inputs=dense, rate=.4, training=mode == tf.estimator.ModeKeys.TRAIN)
