@@ -8,6 +8,9 @@ n_mice = len(ccd.data)
 
 # Global variables; updated on calls to process_timeseries()
 # To be used for get_labels().
+global _mids
+global _t_lefts
+
 _mids = []
 _t_lefts = []
 
@@ -65,18 +68,21 @@ def load_one(which='t', window=1440, step=np.nan, mouse_id='', reset_globals=Tru
     mouse_pointers_local = np.array([ mid for _ in range(nchunks) ])
 
     # update the globals based on what time_chunks looks like.
-    shapes = np.array([np.shape(tc) for tc in time_chunks])
+    shapes = np.array([np.prod( np.shape(tc) ) for tc in time_chunks])
     valid_tc = np.where(shapes!=0)[0]
 
     t_lefts_local = t_lefts_local[valid_tc]
     mouse_pointers_local = mouse_pointers_local[valid_tc]
 
+    global _mids
+    global _t_lefts
+
     if reset_globals:
         _mids = mouse_pointers_local
         _t_lefts = t_lefts_local
     else:
-        _mids += mouse_pointers_local
-        _t_lefts += t_lefts_local
+        _mids += list( mouse_pointers_local )
+        _t_lefts += list( t_lefts_local )
     #
 
     time_chunks = np.vstack(time_chunks)
@@ -95,6 +101,12 @@ def load_all(which='t', window=1440, step=np.nan):
             from each result are concatenated.
     '''
     import numpy as np
+
+    # Reset the global variables
+    global _mids
+    global _t_lefts
+    _mids = []
+    _t_lefts = []
 
     time_chunks_all = []
 
@@ -238,8 +250,32 @@ def get_labels(attr):
             on the left endpoint of the chunk.
         t_post_infection : integer; max(0, t_translated). This presumes
             all pre-infection data is of the same quality.
+        infected : 0/1 integer. This asks if the chunk is at a point 
+            pre- or post-infection. Essentially (t_translated > 0) casted to integer.
     '''
+    import numpy as np
 
+    global _mids
+    global _t_lefts
+
+    if attr in ccd.attrnames:
+        labels = ccd.get_attr_values(attr, idx=_mids)
+
+    elif attr in ['t_translated', 't_post_infection', 'infected']:
+
+        itimes = ccd.get_attr_values('infection_time', idx=_mids)
+        t_translated = np.array(_t_lefts) - itimes
+
+        if attr=='t_translated':
+            labels = t_translated
+        elif attr=='t_post_infection':
+            labels = np.maximum(0., t_translated)
+        elif attr=='infected':
+            labels = np.array( t_translated > 0., dtype=int)
+        #
+    else:
+        raise ValueError('Attribute %s not recognized. See the docstring for a list of allowable inputs.'%str(attr))
+    #
 
     return labels
 #
