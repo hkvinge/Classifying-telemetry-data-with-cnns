@@ -10,9 +10,10 @@ from convolution_functions import*
 def cnn_model_fn(features,labels,mode):
     """Model function for CNN."""
     # This specifies the form of the input
-    input_layer = tf.reshape(features["x"],[-1,64,32,3])
-    
+    input_layer = tf.reshape(features["x"],[-1,200,32,1])
 
+    print(input_layer.get_shape())   
+ 
     # Convolutional Layer #1
     conv1 = tf.layers.conv2d(
         inputs=input_layer,
@@ -21,8 +22,12 @@ def cnn_model_fn(features,labels,mode):
         padding="same",
         activation=tf.nn.relu)
 
+    print(conv1.get_shape())
+
     # Pooling Layer #1
     pool1 = tf.layers.max_pooling2d(inputs=conv1,pool_size=[2,2],strides=2)
+
+    print(pool1.get_shape())
 
     # Convolutional Layer #2 and Pooling Layer #2
     conv2 = tf.layers.conv2d(
@@ -31,16 +36,21 @@ def cnn_model_fn(features,labels,mode):
         kernel_size=[5,5],
         padding="same",
         activation=tf.nn.relu)
+
+    print(conv2.get_shape())
+
     pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2,2], strides=2)
 
+    print(pool2.get_shape())
+
     # Dense layer
-    pool2_flat = tf.reshape(pool2,[-1,16*8*64])
+    pool2_flat = tf.reshape(pool2,[-1,50*8*64])
     dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
     dropout = tf.layers.dropout(
         inputs=dense, rate=.4, training=mode == tf.estimator.ModeKeys.TRAIN)
 
     # Logits Layer
-    logits = tf.layers.dense(inputs=dropout, units=7)
+    logits = tf.layers.dense(inputs=dropout, units=2)
 
     predictions = {
         # Generative predictions (for PREDICT and EVAL mode)

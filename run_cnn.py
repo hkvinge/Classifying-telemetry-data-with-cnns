@@ -16,7 +16,7 @@ import utils
 tf.logging.set_verbosity(tf.logging.INFO)
 
 # Set length of time interval to investigate
-length = 1440
+length = 200
 widths = 32
 channels = 1
 
@@ -120,8 +120,8 @@ time_series_classifier.train(
                                                     
 # Evaluate the model and print results
 eval_input_fn = tf.estimator.inputs.numpy_input_fn(
-            x={"x": eval_images},
-            y=eval_labels,
+            x={"x": images_test},
+            y=labels_test,
             num_epochs=1,
             shuffle=False)
 eval_results = time_series_classifier.evaluate(input_fn=eval_input_fn)
