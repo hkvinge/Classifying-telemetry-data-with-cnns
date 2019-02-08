@@ -14,7 +14,7 @@ global _t_lefts
 _mids = []
 _t_lefts = []
 
-def load_one(which='t', window=1440, step=np.nan, mouse_id='', reset_globals=True):
+def load_one(which='t', window=1440, step=np.nan, mouse_id='', reset_globals=True, nan_thresh=120):
     '''
     Loads a timeseries.
 
@@ -32,6 +32,8 @@ def load_one(which='t', window=1440, step=np.nan, mouse_id='', reset_globals=Tru
             called on its own, you probably want this to be True.
             When this is called by load_all(), it is set False.
             (default: True)
+        nan_thresh : integer. Number of NaN values in a chunk of the timeseries that 
+            can be tolerated before the chunk is thrown out. (default: 120). 
 
     Outputs:
         time_chunks : numpy array of dimension n-by-d, where d is the window
@@ -39,10 +41,14 @@ def load_one(which='t', window=1440, step=np.nan, mouse_id='', reset_globals=Tru
             the given mouse. This varies a lot depending on the mouse.
 
     Notes:
-        If mouse_id is not specified, the global parameter _i is referenced
+        - If mouse_id is not specified, the global parameter _i is referenced
         and the operations are applied on ccd.data[_i].
+        - If the window size is smaller than nan_thresh, then nan_thresh will be 
+        internally reset to window-1.
     '''
     import numpy as np
+
+    nan_thresh = min(nan_thresh,window-1)
 
     # get index pointing to appropriate datatype
     datatype = {'t':0, 'a':1}[which]
@@ -62,7 +68,10 @@ def load_one(which='t', window=1440, step=np.nan, mouse_id='', reset_globals=Tru
 
     nchunks = ( len(tseries) - window )//step +1
 
-    time_chunks = [ process_timeseries( tseries[ i*step : i*step + window ] ) for i in range(nchunks) ]
+    time_chunks = [ 
+                    process_timeseries( tseries[ i*step : i*step + window ], nan_thresh=nan_thresh) 
+                    for i in range(nchunks) 
+                ]
 
     t_lefts_local = np.array([i*step for i in range(nchunks)])
     mouse_pointers_local = np.array([ mid for _ in range(nchunks) ])
@@ -90,7 +99,7 @@ def load_one(which='t', window=1440, step=np.nan, mouse_id='', reset_globals=Tru
     return time_chunks
 #
 
-def load_all(which='t', window=1440, step=np.nan):
+def load_all(which='t', window=1440, step=np.nan, nan_thresh=120):
     '''
     Loads all timeseries by repeatedly calling load_one iteratively.
 
@@ -116,7 +125,8 @@ def load_all(which='t', window=1440, step=np.nan):
                             window = window,
                             step = step,
                             mouse_id = ccd.data[i].mouse_id.value,
-                            reset_globals = False
+                            nan_thresh = nan_thresh,
+                            reset_globals = False                            
                         )
         time_chunks_all.append( time_chunks )
     #
@@ -147,6 +157,7 @@ def process_timeseries(tseries_raw, nan_thresh=120,**kwargs):
         tseries: a numpy array shape either (d,) or (0,d), depending on
             whether the timeseries was thrown out for having too much
             missing data.
+    
     '''
     import numpy as np
 
