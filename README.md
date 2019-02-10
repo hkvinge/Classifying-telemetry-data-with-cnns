@@ -13,3 +13,7 @@ While there are many possible convolutions that could be used, in this project w
 ## The data set
 
 The data set we are working with is a collection of telemetry data for mice. Each mouse 
+
+## Weaknesses to the approach
+
+While our approach yields a method whereby structure at different scales in a time series can be fed as features to a CNN, there are some important trade-off's that come into play. The first is that there is a cost to converting time series into images, in that we move from dealing with objects of size *t* to objects of size *tm*. When *t* is large, then in order to capture structure at all scales we will need to make *m* fairly large as well. This may be prohibitively expensive. We 
