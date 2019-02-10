@@ -14,8 +14,8 @@ While there are many possible convolutions that could be used, in this project w
 
 ## The data set
 
-The data set we are working with is a collection of telemetry data for mice. Each mouse 
+The data set we are working with consists of telemetry data for mice. From each mouse we have a time series with both temperature and movement data from the mice. At a specified point in the time series 
 
 ## Weaknesses to the approach
 
-While our approach yields a method whereby structure at different scales in a time series can be fed as features to a CNN, there are some important trade-off's that come into play. The first is that there is a cost to converting time series into images, in that we move from dealing with objects of size *t* to objects of size *tm*. When *t* is large, then in order to capture structure at all scales we will need to make *m* fairly large as well. This may be prohibitively expensive. We 
+While our approach yields a method whereby structure at different scales in a time series can be fed as features to a CNN, there are some important trade-off's which should be noted. The first is that there is a cost to converting time series into images, in that we move from dealing with objects of size *t* to objects of size *tm*. When *t* is large, then in order to capture structure at all scales we will need to make *m* fairly large as well. This may be prohibitively expensive in some cases. To mitigate this we have: (1) chosen to classify subwindows of each time series of shorter length, (2) 
