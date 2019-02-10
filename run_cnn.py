@@ -16,9 +16,10 @@ import utils
 tf.logging.set_verbosity(tf.logging.INFO)
 
 # Set length of time interval to investigate
-length = 500
+length = 1200
 widths = 32
 channels = 1
+step_size = 4
 
 # Path to data files
 path_to_data = "/Users/HK/Programming/Calcom/tamu"
@@ -53,8 +54,9 @@ temps_total = np.concatenate((labels,temps),axis=1)
 # Now shuffle total array
 np.random.shuffle(temps_total)
 # Separate labels and features
-labels = temps_total[:,0]
-temps = temps_total[:,1:]
+labels = temps_total[0:numb_train + numb_test,0]
+temps = temps_total[:,1::step_size]
+length = int(length/step_size)
 
 # Separate training and testing data and take transpose
 labels_train = labels[0:numb_train]
@@ -71,14 +73,14 @@ images_train = np.zeros((widths, length, channels, numb_train))
 # Initialize array to hold evaluation images
 images_test = np.zeros((widths, length, channels, numb_test))
     
-# Iterate through desired, setting desired number of training images
+# Iterate through, setting desired number of training images
 for i in range(numb_train):
     time_series = temps_train[:,i]
     images_train[:,:,:,i] = create_image(time_series,length,widths,channels)
     if labels_train[i] > 0:
         labels_train[i] = 1   
  
-# Iterate through desired number of test images
+# Iterate through, number of test images
 for i in range(numb_test):
     time_series = temps_test[:,i]
     images_test[:,:,:,i] = create_image(time_series,length,widths,channels)
@@ -94,7 +96,7 @@ images_train = np.float32(images_train)
 labels_train = labels_train.astype(np.int32)
 images_test = np.float32(images_test)
 labels_test = labels_test.astype(np.int32)
- 
+
 # Create estimator
 time_series_classifier = tf.estimator.Estimator(
             model_fn=cnn_model_fn, model_dir=path_to_store_weights)
@@ -103,7 +105,7 @@ time_series_classifier = tf.estimator.Estimator(
 # Log the values in the "Softmax" tensor with label "probabilities"
 tensors_to_log = {}
 logging_hook = tf.train.LoggingTensorHook(
-            tensors=tensors_to_log, every_n_iter=50)                                        
+            tensors=tensors_to_log, every_n_iter=10)                                        
  
 # Train the model
 train_input_fn = tf.estimator.inputs.numpy_input_fn(
@@ -115,7 +117,7 @@ train_input_fn = tf.estimator.inputs.numpy_input_fn(
                                                     
 time_series_classifier.train(
             input_fn=train_input_fn,
-            steps=1000,
+            steps=5000,
             hooks=[logging_hook])
                                                     
 # Evaluate the model and print results

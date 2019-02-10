@@ -14,11 +14,17 @@ def cnn_model_fn(features,labels,mode):
     #first_layer_shape = first_layer_shape.astype(np.int32)
     width = int(first_layer_shape[3])
     length = int(first_layer_shape[2])
-    batch = int(first_layer_shape[0])
-    print(first_layer_shape)
+    #if first_layer_shape[0] == None:
+    #    batch = int(first_layer_shape[0])
+    #    print("Made it into if statement.")
+    #else:
+    #    batch = 1 
+    #    print("Did not make it into if statement") 
+    #print(first_layer_shape)
+
 
     # This specifies the form of the input
-    input_layer = tf.reshape(features["x"],[batch,length,width,1])
+    input_layer = tf.reshape(features["x"],[-1,length,width,1])
 
     print(input_layer.get_shape())
 
