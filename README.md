@@ -10,6 +10,8 @@ In this project we seek to leverage the power of CNN's to better classify time s
 
 While there are many possible convolutions that could be used, in this project we have chosen to use the [Ricker wavelet](https://en.wikipedia.org/wiki/Mexican_hat_wavelet) (or Mexican hat wavelet). This is the negative normalized second derivative of the Gaussian function. 
 
+<a href="https://www.codecogs.com/eqnedit.php?latex=\psi(t)&space;=&space;\frac{2}{\sqrt{3}\pi^{1/4}}e^{-\frac{t^2(1-t^2)}{2}}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\psi(t)&space;=&space;\frac{2}{\sqrt{3}\pi^{1/4}}e^{-\frac{t^2(1-t^2)}{2}}" title="\psi(t) = \frac{2}{\sqrt{3}\pi^{1/4}}e^{-\frac{t^2(1-t^2)}{2}}" /></a>
+
 ## The data set
 
 The data set we are working with is a collection of telemetry data for mice. Each mouse 
