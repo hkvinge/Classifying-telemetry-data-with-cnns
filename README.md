@@ -8,7 +8,7 @@ In this project we seek to leverage the power of CNN's to better classify time s
 
 ## The convolution map
 
-While there are many possible convolutions that could be used, in this project we have chosen to use the Ricker wavelet (or Mexican hat wavelet). In 
+While there are many possible convolutions that could be used, in this project we have chosen to use the [Ricker wavelet](https://en.wikipedia.org/wiki/Mexican_hat_wavelet) (or Mexican hat wavelet). This is the negative normalized second derivative of the Gaussian function. 
 
 ## The data set
 
