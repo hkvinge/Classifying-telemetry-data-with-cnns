@@ -14,8 +14,8 @@ While there are many possible convolutions that could be used, in this project w
 
 ## The data set
 
-The data set we are working with consists of telemetry data for mice. From each mouse we have a time series with both temperature and movement data from the mice. At a specified point in the time series 
+The data set we are working with consists of telemetry data for mice. From each mouse we have a time series with both temperature and movement data from the mice. We can treat these two features (temperature and movement) as two color channels. Hence we are classifying dichromatic images in this case. An example of a pair of example time series are shown below:
 
 ## Weaknesses to the approach
 
-While our approach yields a method whereby structure at different scales in a time series can be fed as features to a CNN, there are some important trade-off's which should be noted. The first is that there is a cost to converting time series into images, in that we move from dealing with objects of size *t* to objects of size *tm*. When *t* is large, then in order to capture structure at all scales we will need to make *m* fairly large as well. This may be prohibitively expensive in some cases. To mitigate this we have: (1) chosen to classify subwindows of each time series of shorter length, (2) 
+While our approach yields a method whereby structure at different scales in a time series can be fed as features to a CNN, there are some important trade-off's which should be noted. The first is that there is a cost to converting time series into images, in that we move from dealing with objects of size *t* to objects of size *tm*. When *t* is large, then in order to capture structure at all scales we will need to make *m* fairly large as well. This may be prohibitively expensive in some cases. To mitigate this we have: (1) chosen to classify subwindows of each time series (which are of significantly shorter length), (2) subsampled when it seemed like taking a shorter window would lose large-scale structure that would be fundamental to classification.
