@@ -10,23 +10,14 @@ from convolution_functions import*
 def cnn_model_fn(features,labels,mode):
     """Model function for CNN."""
 
+    # Get data on the shape of the input data to inform
+    # the architecture of the net
     first_layer_shape = features["x"].get_shape().as_list()
-    #first_layer_shape = first_layer_shape.astype(np.int32)
     width = int(first_layer_shape[3])
     length = int(first_layer_shape[2])
-    #if first_layer_shape[0] == None:
-    #    batch = int(first_layer_shape[0])
-    #    print("Made it into if statement.")
-    #else:
-    #    batch = 1 
-    #    print("Did not make it into if statement") 
-    #print(first_layer_shape)
-
 
     # This specifies the form of the input
     input_layer = tf.reshape(features["x"],[-1,length,width,1])
-
-    print(input_layer.get_shape())
 
     # Convolutional Layer #1
     conv1 = tf.layers.conv2d(
@@ -36,12 +27,8 @@ def cnn_model_fn(features,labels,mode):
         padding="same",
         activation=tf.nn.relu)
 
-    print(conv1.get_shape())
-
     # Pooling Layer #1
     pool1 = tf.layers.max_pooling2d(inputs=conv1,pool_size=[2,2],strides=2)
-
-    print(pool1.get_shape())
 
     # Convolutional Layer #2 and Pooling Layer #2
     conv2 = tf.layers.conv2d(
@@ -51,17 +38,15 @@ def cnn_model_fn(features,labels,mode):
         padding="same",
         activation=tf.nn.relu)
 
-    print(conv2.get_shape())
-
     pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2,2], strides=2)
-
-    print(pool2.get_shape())
 
     # Dense layer
     pool2_flat = tf.reshape(pool2,[-1,int(length/4)*int(width/4)*64])
     dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
     dropout = tf.layers.dropout(
         inputs=dense, rate=.4, training=mode == tf.estimator.ModeKeys.TRAIN)
+
+    print(np.shape(dense))
 
     # Logits Layer
     logits = tf.layers.dense(inputs=dropout, units=2)
@@ -83,7 +68,7 @@ def cnn_model_fn(features,labels,mode):
 
     # Configure the Training Op (for TRAIN mode)
     if mode == tf.estimator.ModeKeys.TRAIN:
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate=.000001)
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate=.0001)
         train_op = optimizer.minimize(
             loss=loss,
             global_step=tf.train.get_global_step())
