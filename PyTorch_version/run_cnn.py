@@ -1,169 +1,146 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-# Imports
-import sys
-sys.path.append('/data3/darpa/calcom/')
-import calcom
 import numpy as np
+import torch
+import torchvision
+import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
-import time
-from random import randint
-import utils
-import matlab.engine
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import torch.utils.data as data_utils
 
-# Set length of time interval to investigate
-length = 2400
-widths = 50
-channels = 1
-step_size = 50
+def imshow(img):
+	img = img / 2 + 0.5     # unnormalize
+	npimg = img.numpy()
+	plt.imshow(np.transpose(npimg, (1, 2, 0)))
+	plt.show()
 
-# Path to data files
-path_to_data = "/data3/darpa/tamu/"
 
-# Use Calcom functionality to load time series    
-temps = utils.load_all(window=length);
-#acel = utils.load_all(window=length,which='a')
-labels = utils.get_labels('t_post_infection')
+class Net(nn.Module):
+	
 
-# Get split numbers between testing and training
-dims = np.shape(temps)
-# Number of time series
-numb_ex = dims[0]
-# Length of each time series
-length_ex = dims[1]
-# Get size of training set
-numb_train = round(.7*numb_ex-1)
-numb_test = round(.3*numb_ex-1)
+	def __init__(self):
+		super(Net, self).__init__()
+		self.conv1 = nn.Conv2d(1,12, kernel_size=3, stride=1,padding=1)
+		self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+		self.conv2 = nn.Conv2d(12, 24, kernel_size=3,stride=1,padding=1)
+		self.fc1 = nn.Linear(24*6*12, 120)
+		self.fc2 = nn.Linear(120, 84)
+		self.fc3 = nn.Linear(84, 2)
 
-# Transpose temps and labels and then shuffle along first dimension
-# so that training/testing set will be new each time
+	def forward(self, x):
+		# The first convolution takes data from shape (1,27,48) to (12,27,48)
+		# The first pooling takes data from shape (12,27,48) to (12,9,16)
+		x = self.pool(F.relu(self.conv1(x)))
+		# The second convolution takes data from shape (12,9,16) to (24,9,16)
+		# The second pooling take data from shape (24,9,16) to (24,6,12)
+		x = self.pool(F.relu(self.conv2(x)))
+		x = x.view(-1,24*6*12 )
+		x = F.relu(self.fc1(x))
+		x = F.relu(self.fc2(x))
+		x = self.fc3(x)
+		return F.softmax(x)
 
-# Start by concatentating the data together (so features and labels
-# are shuffled identically)
-labels = np.reshape(labels,[-1,1])
-data_total = np.concatenate((labels,temps),axis=1)
-# Now shuffle total array
-np.random.seed(0)
-np.random.shuffle(data_total)
-# Separate labels and features
-labels_subsampled = data_total[0:numb_train + numb_test,0]
-labels = labels_subsampled
-temps_subsampled = data_total[0:numb_train + numb_test,1:numb_train + numb_test:step_size]
-for i in range(1,step_size):
-    offset = data_total[0:numb_train + numb_test,i::step_size]
-    temps_subsampled = np.concatenate((temps_subsampled,offset),axis=0)
-    labels = np.concatenate((labels,labels_subsampled),axis=0)
-temps = temps_subsampled
-length = int(length/step_size)
+# Number of training examples
+numb_train = 4000
+# Number of testing examples
+numb_test = 1000
 
-# Separate training and testing data and take transpose
-labels_train = labels[0:step_size*numb_train]
-labels_train = labels_train.transpose()
-labels_test = labels[step_size*numb_train:step_size*numb_ex]
-labels_test = labels_test.transpose()
-temps_train = temps[0:step_size*numb_train,:]
-temps_train = temps_train.transpose()
-temps_test = temps[step_size*numb_train:step_size*numb_ex,:]
-temps_test = temps_test.transpose()
+seed = 42
+np.random.seed(seed)
 
-# Initialize array to hold training images
-images_train = np.zeros((widths, length, channels, step_size*numb_train))
-# Initialize array to hold evaluation images
-images_test = np.zeros((widths, length, channels, step_size*numb_test))
-    
-# Iterate through, setting desired number of training images
-for i in range(step_size*numb_train):
-    time_series = temps_train[:,i]
-    images_train[:,:,:,i] = create_image(time_series,length,widths,channels)
-    if labels_train[i] > 0:
-        labels_train[i] = 1  
-    if (i % 100 == 0):
-        print(str(i) + " out of " + str(step_size*numb_train) + " training images.")  
+# Load dataset
+images_train = np.loadtxt(open("temps_pictures_train.csv", "rb"), delimiter=",")
+labels_train = np.loadtxt(open("labels_train_revised.csv","rb"), delimiter=",")
+images_test = np.loadtxt(open("temps_pictures_test.csv", "rb"), delimiter=",")
+labels_test = np.loadtxt(open("labels_test_revised.csv", "rb"), delimiter=",")
 
-# Now mean center each pixel for training images
-for i in range(length):
-    for j in range(widths):
-        mean = np.mean(images_train[j,i,:,:])
-        variance = np.var(images_train[j,i,:,:])
-        images_train[j,i,:,:] = images_train[j,i,:,:] - mean*np.ones((1,1,channels,step_size*numb_train))
-        images_train[j,i,:,:] = (1/variance)*images_train[j,i,:,:]
+# Create new numpy array to store reshaped images
+images_train_reshape = np.zeros((numb_train,1,27,48))
+images_test_reshape = np.zeros((numb_test,1,27,48))
 
-# Iterate through, number of test images
-for i in range(step_size*numb_test):
-    time_series = temps_test[:,i]
-    images_test[:,:,:,i] = create_image(time_series,length,widths,channels)
-    if labels_test[i] > 0:
-        labels_test[i] = 1            
-    if (i % 100 == 0):
-        print(str(i) + " out of " + str(step_size*numb_test) + " test images.") 
- 
-# Now mean center each pixel for test images
-for i in range(length):
-    for j in range(widths):
-        mean = np.mean(images_test[j,i,:,:])
-        variance = np.var(images_test[j,i,:,:])
-        images_test[j,i,:,:] = images_test[j,i,:,:] - mean*np.ones((1,1,channels,step_size*numb_test))
-        images_test[j,i,:,:] = (1/variance)*images_test[j,i,:,:]
+labels_train_reshape = np.zeros((numb_train,2))
 
-# Plot some example time series colored by label
-# X coordinate
-x = range(length)
-plt.plot(x,temps_train[:,1], label=labels_train[1])
-plt.plot(x,temps_train[:,10], label=labels_train[10])
-plt.plot(x,temps_train[:,100], label=labels_train[100])
-plt.plot(x,temps_train[:,150], label=labels_train[150])
-plt.legend()
-plt.show()
-# And their corresponding images
-plt.imshow(images_train[:,:,0,1], interpolation='nearest')
-plt.show()
-plt.imshow(images_train[:,:,0,10]-images_train[:,:,0,1], interpolation='nearest')
-plt.show()
-plt.imshow(images_train[:,:,0,100]-images_train[:,:,0,1], interpolation='nearest')
-plt.show()
-plt.imshow(images_train[:,:,0,150]-images_train[:,:,0,1], interpolation='nearest')
-plt.show() 
+# Reshape training images
+for i in range(numb_train):
+	images_train_reshape[i,0,:,:] = np.reshape(images_train[27*i:27*(i+1),:],(1,27,48))
+	if (labels_train[i] == 0):
+		labels_train_reshape[i,0] = 1
+	else:
+		labels_train_reshape[i,1] = 1
 
-#Transpose images for input into tensorflow
-images_train = np.transpose(images_train)
-images_test = np.transpose(images_test)
+# Reshape test images
+for i in range(numb_test):
+	images_test_reshape[i,0,:,:] = np.reshape(images_test[27*i:27*(i+1),:],(1,27,48))
 
-# Cast arrays from float64 to float32 for tensorflow
-images_train = np.float32(images_train)
-labels_train = labels_train.astype(np.int32)
-images_test = np.float32(images_test)
-labels_test = labels_test.astype(np.int32)
+# Change numpy arrays of PyTorch tensors
+images_train = torch.Tensor(images_train_reshape)
+labels_train = torch.Tensor(labels_train)
+images_test = torch.Tensor(images_test_reshape)
+labels_test = torch.Tensor(labels_test)
 
-# Create estimator
-time_series_classifier = tf.estimator.Estimator(
-            model_fn=cnn_model_fn, model_dir=path_to_store_weights)
-    
-# Set up logging for predictions
-# Log the values in the "Softmax" tensor with label "probabilities"
-tensors_to_log = {}
-logging_hook = tf.train.LoggingTensorHook(
-            tensors=tensors_to_log, every_n_iter=10)                                        
+# Unite features and labels
+training_set = torch.utils.data.TensorDataset(images_train,labels_train)
+test_set = torch.utils.data.TensorDataset(images_test,labels_test)
 
-# Train the model
-train_input_fn = tf.estimator.inputs.numpy_input_fn(
-            x={"x":images_train},
-            y=labels_train,
-            batch_size=100,
-            num_epochs=None,
-            shuffle=True)
-                                                    
-time_series_classifier.train(
-            input_fn=train_input_fn,
-            steps=5000,
-            hooks=[logging_hook])
-                                                    
-# Evaluate the model and print results
-eval_input_fn = tf.estimator.inputs.numpy_input_fn(
-            x={"x": images_test},
-            y=labels_test,
-            num_epochs=1,
-            shuffle=False)
-eval_results = time_series_classifier.evaluate(input_fn=eval_input_fn)
-print(eval_results)
+# Create data loader
+train_loader = torch.utils.data.DataLoader(training_set,batch_size=30, shuffle=True,num_workers=4)
+test_loader = torch.utils.data.DataLoader(test_set,batch_size=30, shuffle=True, num_workers=4)
+
+classes = (0, 1)
+
+net = Net()
+
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.5)
+
+for epoch in range(500):  # loop over the dataset multiple times
+	running_loss = 0.0
+	for i, data in enumerate(train_loader,0):
+        	# get the inputs
+		inputs, labels = data
+		labels = labels.long()
+        	# zero the parameter gradients
+		optimizer.zero_grad()
+        	# forward + backward + optimize
+		outputs = net(inputs)
+		loss = criterion(outputs, labels)
+		loss.backward()
+		optimizer.step()
+
+        	# print statistics
+		running_loss += loss.item()
+		if i % 50 == 49:    # print every 2000 mini-batches
+			print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 2000))
+			running_loss = 0.0
+
+print('Finished Training')
+
+dataiter = iter(test_loader)
+images, labels = dataiter.next()
+
+# print images
+imshow(torchvision.utils.make_grid(images))
+indices = labels.numpy()
+print(int(indices[0]))
+print('GroundTruth: ', ' '.join('%5s' % classes[int(indices[j])] for j in range(4)))
+
+outputs = net(images)
+
+_, predicted = torch.max(outputs, 1)
+
+print('Predicted: ', ' '.join('%5s' % classes[predicted[j]]
+                              for j in range(4)))
+
+correct = 0
+total = 0
+with torch.no_grad():
+	for data in test_loader:
+		images, labels = data
+		labels = labels.long()
+		outputs = net(images)
+		_, predicted = torch.max(outputs.data, 1)
+		total += labels.size(0)
+		correct += (predicted == labels).sum().item()
+
+print('Accuracy of the network on the 10000 test images: %d %%' % (
+    100 * correct / total))

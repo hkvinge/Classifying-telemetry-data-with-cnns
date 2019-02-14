@@ -1,11 +1,18 @@
 
 import numpy as np
 
-import sys
-sys.path.append('/data3/darpa/calcom/')
 import calcom
-prefix = '/data4/kvinge/time_series_work/tamu/'
-ccd = calcom.io.CCDataSet(prefix+'tamu_expts_01-27.h5')
+
+prefixes = ['/Users/HK/Programming/Calcom/tamu/', '/data3/darpa/tamu/']
+
+for p in prefixes:
+    try:
+        ccd = calcom.io.CCDataSet(p + 'tamu_expts_01-27.h5')
+        break
+    except:
+        continue
+#
+
 n_mice = len(ccd.data)
 
 # Global variables; updated on calls to process_timeseries()
@@ -16,7 +23,7 @@ global _t_lefts
 _mids = []
 _t_lefts = []
 
-def load_one(which='t', window=1440, step=np.nan, mouse_id='', reset_globals=True, nan_thresh=120):
+def load_one(which='t', window=1440, step=np.nan, mouse_id='', reset_globals=True, nan_thresh=120,**kwargs):
     '''
     Loads a timeseries.
 
@@ -49,11 +56,15 @@ def load_one(which='t', window=1440, step=np.nan, mouse_id='', reset_globals=Tru
         internally reset to window-1.
     '''
     import numpy as np
+    if kwargs.get('debug',False):
+        import pdb
+        pdb.set_trace()
+    #
 
     nan_thresh = min(nan_thresh,window-1)
 
     # get index pointing to appropriate datatype
-    datatype = {'t':0, 'a':1}[which]
+    datatype = {'t':0, 'a':1, 'b':[0,1]}[which]
     if ( not isinstance(mouse_id,str) ) or ( len(mouse_id)==0 ):
         print('Warning: invalid mouse_id specified. Returning empty array.')
         return np.zeros( (0,window) )
@@ -61,29 +72,35 @@ def load_one(which='t', window=1440, step=np.nan, mouse_id='', reset_globals=Tru
 
     mid = ccd.find('mouse_id',mouse_id)[0]
     dp = ccd.data[mid]
-    tseries = dp[datatype]
+    tseries = np.array( dp[datatype] )
 
-    len_ts = len(tseries)
+    # easier to convert the 1-modality case to a 2d array and handle general case.
+    if which in ['t','a']:
+        tseries.shape = (1,len(tseries))
+    #
+
+    len_ts = np.shape(tseries)[1]
+
 
     if np.isnan(step):
         step = window
 
-    nchunks = ( len(tseries) - window )//step +1
+    nchunks = ( len_ts - window )//step +1
 
     time_chunks = [ 
-                    process_timeseries( tseries[ i*step : i*step + window ], nan_thresh=nan_thresh) 
+                    process_timeseries( tseries[:, i*step : i*step + window ], nan_thresh=nan_thresh) 
                     for i in range(nchunks) 
                 ]
 
-    t_lefts_local = np.array([i*step for i in range(nchunks)])
-    mouse_pointers_local = np.array([ mid for _ in range(nchunks) ])
+    t_lefts_local = np.array( [ i*step for i in range(nchunks) ] )
+    mouse_pointers_local = np.array( [ mid for _ in range(nchunks) ] )
 
     # update the globals based on what time_chunks looks like.
-    shapes = np.array([np.prod( np.shape(tc) ) for tc in time_chunks])
-    valid_tc = np.where(shapes!=0)[0]
+    shapes = np.array( [ np.prod( np.shape(tc) ) for tc in time_chunks ] )
+    valid_tc = np.where( shapes!=0 )[0]
 
-    t_lefts_local = t_lefts_local[valid_tc]
-    mouse_pointers_local = mouse_pointers_local[valid_tc]
+    t_lefts_local = t_lefts_local[ valid_tc ]
+    mouse_pointers_local = mouse_pointers_local[ valid_tc ]
 
     global _mids
     global _t_lefts
@@ -96,12 +113,35 @@ def load_one(which='t', window=1440, step=np.nan, mouse_id='', reset_globals=Tru
         _t_lefts += list( t_lefts_local )
     #
 
-    time_chunks = np.vstack(time_chunks)
 
-    return time_chunks
+    if not isinstance(datatype,list):
+        datatype = [datatype]
+    #
+
+    # import pdb
+    # pdb.set_trace()
+
+    output = np.zeros( (len(datatype), len(valid_tc), window), dtype=float)
+
+    for j,idx in enumerate(valid_tc):
+        for k,dtype in enumerate(datatype):
+            #output[k,j,:] = time_chunks[idx][dtype]
+            if which=='b':  #I can't do the elegant solution
+                output[k,j,:] = time_chunks[idx][k]
+            else:
+                output[k,j,:] = time_chunks[idx]
+        #
+    #
+
+    # don't want the more general data structure if 
+    # only one type of timeseries was requested; flatten back down.
+    if np.shape(output)[0]==1:
+        output.shape = (output.shape[1], output.shape[2])
+
+    return output
 #
 
-def load_all(which='t', window=1440, step=np.nan, nan_thresh=120):
+def load_all(which='t', window=1440, step=np.nan, nan_thresh=120,**kwargs):
     '''
     Loads all timeseries by repeatedly calling load_one iteratively.
 
@@ -119,21 +159,28 @@ def load_all(which='t', window=1440, step=np.nan, nan_thresh=120):
     _mids = []
     _t_lefts = []
 
+#    combo = [[],[]] # only used for which=='b'
     time_chunks_all = []
-
     for i in range(n_mice):
+        # print(i,ccd.data[i].mouse_id.value)
         time_chunks = load_one(
                             which = which,
                             window = window,
                             step = step,
                             mouse_id = ccd.data[i].mouse_id.value,
                             nan_thresh = nan_thresh,
-                            reset_globals = False                            
+                            reset_globals = False,
+                            **kwargs                        
                         )
         time_chunks_all.append( time_chunks )
+
     #
 
-    time_chunks = np.vstack(time_chunks_all)
+    if which=='b':
+        time_chunks = np.concatenate( time_chunks_all, axis=1 )
+    else:
+        time_chunks = np.concatenate( time_chunks_all, axis=0 )
+    #
 
     return time_chunks
 #
@@ -163,75 +210,113 @@ def process_timeseries(tseries_raw, nan_thresh=120,**kwargs):
     '''
     import numpy as np
 
+    # import pdb
+    # pdb.set_trace()
+
     verbosity = kwargs.get('verbosity',0)
 
-    d = len(tseries_raw)
-    nnans = np.where(tseries_raw!=tseries_raw)[0]
+    dims = np.shape(tseries_raw)
+    if len(dims)>1:
+        # Are there multiple timeseries?
+        m,d = dims[0],dims[1]
+    else:
+        m = 1
+        d = dims[0]
+    #
+
+    # how many time points are polluted by nans?
+    # This will throw out the datapoint if 
+    nan_locs = np.where(tseries_raw!=tseries_raw)
+    if m>1:
+        nnans = np.unique(nan_locs[1])
+    else:
+        nnans = np.unique(nan_locs)
+    #
 
     if len(nnans) >= nan_thresh:
         if verbosity!=0:
             print('The timeseries has greater than %i NaNs; throwing it out.'%nan_thresh)
-        return np.zeros( (0,d) )
+        if m>1:
+            return np.vstack( [np.zeros((0,d)) for _ in range(m)] )
+        else:
+            return np.zeros( (0,d) )
     #
 
     # Else, make a copy of the timeseries and clean it up in-place.
     tseries = np.array(tseries_raw)
 
+    # It's easier to wrap a single timeseries into a list
+    # and handle everything like the general case.
+#    if m==1:
+#        tseries = [tseries]
+    #
+
     # Check beginning and end of timeseries for nans; replace
     # with the first non-nan value in the appropriate direction.
-    if np.isnan( tseries[0] ):
-        for i in range(nan_thresh):
-            if not np.isnan(tseries[i]):
-                break
+
+
+    for j in range(m):
+        active_ts = tseries[j]
+        if np.isnan( active_ts[0] ):
+            for i in range(nan_thresh):
+                if not np.isnan(active_ts[i]):
+                    break
+            #
+            active_ts[:i] = active_ts[i]
         #
-        tseries[:i] = tseries[i]
-    #
-    if np.isnan( tseries[-1] ):
-        for i in range(d-1, d-nan_thresh-1, -1):
-            if not np.isnan(tseries[i]):
-                break
+        if np.isnan( active_ts[-1] ):
+            for i in range(d-1, d-nan_thresh-1, -1):
+                if not np.isnan(active_ts[i]):
+                    break
+            #
+            active_ts[i:] = active_ts[i]
         #
-        tseries[i:] = tseries[i]
+
+        nan_loc = np.where(np.isnan(active_ts))[0]
+        if len(nan_loc)==0:
+            # Nothing more to be done.
+            # return tseries
+            continue
+        #
+
+        # Now work in the interior. Identify locations of
+        # nans, identify all contiguous chunks, and fill them
+        # in one by one with the nearest non-nan values.
+        contig = []
+        count = 0
+        while count < len(nan_loc):
+            active = nan_loc[count]
+            # scan the following entries looking for a continguous
+            # chunk of nan.
+            chunk = [nan_loc[count]]
+            for j in range(count+1,len(nan_loc)):
+                if (nan_loc[j] == nan_loc[j-1] + 1):
+                    chunk.append( nan_loc[j] )
+                    count += 1
+                else:
+                    break
+            #
+
+            # Identify the tether points for the linear interpolation.
+            left = max(chunk[0] - 1, 0)
+            fl = active_ts[left]
+
+            right = min(chunk[-1] + 1, d-1)
+            fr = active_ts[right]
+
+            m = (fr-fl)/(len(chunk) + 1)
+            active_ts[chunk] = fl + m*np.arange(1 , len(chunk)+1)
+
+            count += 1
+        #
     #
 
-    nan_loc = np.where(np.isnan(tseries))[0]
-    if len(nan_loc)==0:
-        # Nothing to be done.
+    if m==1:
+        # undo what we did wrapping the one timeseries in a list.
+        return tseries[0]
+    else:
         return tseries
     #
-
-    # Now work in the interior. Identify locations of
-    # nans, identify all contiguous chunks, and fill them
-    # in one by one with the nearest non-nan values.
-    contig = []
-    count = 0
-    while count < len(nan_loc):
-        active = nan_loc[count]
-        # scan the following entries looking for a continguous
-        # chunk of nan.
-        chunk = [nan_loc[count]]
-        for j in range(count+1,len(nan_loc)):
-            if (nan_loc[j] == nan_loc[j-1] + 1):
-                chunk.append( nan_loc[j] )
-                count += 1
-            else:
-                break
-        #
-
-        # Identify the tether points for the linear interpolation.
-        left = max(chunk[0] - 1, 0)
-        fl = tseries[left]
-
-        right = min(chunk[-1] + 1, len(tseries)-1)
-        fr = tseries[right]
-
-        m = (fr-fl)/(len(chunk) + 1)
-        tseries[chunk] = fl + m*np.arange(1 , len(chunk)+1)
-
-        count += 1
-    #
-
-    return tseries
 #
 
 def get_labels(attr):
