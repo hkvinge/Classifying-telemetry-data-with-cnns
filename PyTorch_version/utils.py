@@ -378,6 +378,62 @@ def get_labels(attr):
     return labels
 #
 
+def generate_mask(**kwargs):
+    '''
+    Purpose: generate a mask to be used to remove datapoints we expect to perform poorly 
+    for reasons outside our control. 
+    MUST BE RUN AFTER LOAD_ALL().
+
+    Includes:
+        1. experiment_11 : these are mock infections.
+        2. If the time of infection lies inside the time chunk.
+
+    Inputs:
+        None
+    Outputs:
+        mask : array with True/False entries, which masks out 
+            entries deemed undesirable.
+    Optional inputs:
+        update_globals : Boolean. Whether or not to automatically mask out 
+            the global variables in utils; these are utils._mids and utils._t_lefts.
+            Note that these are used to generate labels and so on; if not 
+            automatically masked you need to do it yourself.
+            (default: True)
+    '''
+    update_globals = kwargs.get('update_globals', True)
+
+    global _mids
+    global _t_lefts
+
+    # First - remote experiment_11.
+    mask = np.array( np.ones(len(_mids)), dtype=bool )
+    expt_vals = get_labels('experiment')
+
+    locs = np.where(expt_vals=='experiment_11')[0]
+
+    mask[locs] = False
+    
+    # Next - identify "boundary" timeseries based on _t_lefts
+    # and time of infections pulled from data.
+    itimes = get_labels('infection_time')
+    mo = np.array(_t_lefts)
+
+    # infer the window size then use that to judge if there's an overlap.
+    window = mo[1] - mo[0]
+    for k in range(len(mask)):
+        if ( mo[k] - itimes[k] )*( mo[k] - itimes[k] + window )<0:
+            mask[k] = False
+        #
+    #
+    
+    if kwargs.get('update_globals',True):
+        _mids = np.array(_mids)[mask]
+        _t_lefts = np.array(_t_lefts)[mask]
+    #
+
+    return mask
+#
+
 if __name__=="__main__":
     # Temporary testing
     from matplotlib import pyplot
