@@ -1,16 +1,26 @@
 
 import numpy as np
 
-import calcom
+try:
+    import calcom
+except:
+    import sys
+    sys.path.append('/data3/darpa/calcom/')
+    import calcom
+#
 
-prefixes = ['/Users/HK/Programming/Calcom/tamu/', '/data3/darpa/tamu/']
+prefixes = ['/Users/HK/Programming/Calcom/tamu/', '/data3/darpa/tamuasdf/']
 
 for p in prefixes:
     try:
         ccd = calcom.io.CCDataSet(p + 'tamu_expts_01-27.h5')
         break
     except:
+        ccd = None # placeholder; gets overwritten if ccd loaded successfully.
         continue
+#
+if not ccd:
+    raise Exception('Unable to load dataset. Check location of tamu_expts_01-27.h5 or modify the prefixes variable in utils.py.')
 #
 
 n_mice = len(ccd.data)
