@@ -9,7 +9,7 @@ except:
     import calcom
 #
 
-prefixes = ['/Users/HK/Programming/Calcom/tamu/', '/data3/darpa/tamuasdf/']
+prefixes = ['/Users/HK/Programming/Calcom/tamu/', '/data3/darpa/tamu/']
 
 for p in prefixes:
     try:
