@@ -13,16 +13,15 @@ from random import randint
 import utils
 
 # Set length of time interval to investigate
-length = 2400
-widths = 50
+length = 4800
+widths = 100
 channels = 1
 step_size = 50
 
-# Path to data files
-path_to_data = "/data3/darpa/tamu/"
-
 # Use Calcom functionality to load time series    
 temps = utils.load_all(window=length);
+mask = utils.generate_mask()
+temps = temps[mask]
 labels = utils.get_labels('t_post_infection')
 
 # Get split numbers between testing and training
@@ -42,15 +41,16 @@ numb_test = round(.3*numb_ex-1)
 # are shuffled identically)
 labels = np.reshape(labels,[-1,1])
 data_total = np.concatenate((labels,temps),axis=1)
+data_total = data_total[:numb_train+numb_test,:]
 # Now shuffle total array
 np.random.seed(0)
 np.random.shuffle(data_total)
 # Separate labels and features
-labels_subsampled = data_total[0:numb_train + numb_test,0]
+labels_subsampled = data_total[:,0]
 labels = labels_subsampled
-temps_subsampled = data_total[0:numb_train + numb_test,1:numb_train + numb_test:step_size]
+temps_subsampled = data_total[:,1::step_size]
 for i in range(1,step_size):
-    offset = data_total[0:numb_train + numb_test,i::step_size]
+    offset = data_total[:,i::step_size]
     temps_subsampled = np.concatenate((temps_subsampled,offset),axis=0)
     labels = np.concatenate((labels,labels_subsampled),axis=0)
 temps = temps_subsampled

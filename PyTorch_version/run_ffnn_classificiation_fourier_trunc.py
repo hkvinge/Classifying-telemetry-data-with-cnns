@@ -21,24 +21,22 @@ class Net(nn.Module):
 
 	def __init__(self):
 		super(Net, self).__init__()
-		self.conv1 = nn.Conv2d(1,24, kernel_size=3, stride=1,padding=1)
-		self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
-		self.conv2 = nn.Conv2d(24, 48, kernel_size=3,stride=1,padding=1)
-		self.fc1 = nn.Linear(48*9*24, 120)
-		self.fc2 = nn.Linear(120, 84)
-		self.fc3 = nn.Linear(84, 2)
+		self.fc1 = nn.Linear(40,120)
+		self.fc2 = nn.Linear(120,60)
+		self.fc3 = nn.Linear(60,30)
+		self.fc4 = nn.Linear(30,15)
+		self.fc5 = nn.Linear(15,2)
 
 	def forward(self, x):
 		# The first convolution takes data from shape (1,27,48) to (12,27,48)
 		# The first pooling takes data from shape (12,27,48) to (12,9,16)
-		x = self.pool(F.relu(self.conv1(x)))
+		x = F.relu(self.fc1(x))
 		# The second convolution takes data from shape (12,9,16) to i(24,9,16)
 		# The second pooling take data from shape (24,9,16) to (24,6,12)
-		x = self.pool(F.relu(self.conv2(x)))
-		x = x.view(-1,48*9*24 )
-		x = F.relu(self.fc1(x))
 		x = F.relu(self.fc2(x))
-		x = self.fc3(x)
+		x = F.relu(self.fc3(x))
+		x = F.relu(self.fc4(x))
+		x = F.relu(self.fc5(x))
 		return F.softmax(x)
 
 # Number of training examples
@@ -47,43 +45,32 @@ numb_train = 5000
 numb_test = 1000
 # Batch size
 batch = 30
+# Truncation of Fourier coefficients
+fourier_trunc = 20
 
 seed = 42
 np.random.seed(seed)
 
 # Load dataset
-images_train = np.loadtxt(open("temps_pictures_train.csv", "rb"), delimiter=",")
+series_train = np.loadtxt(open("fourier_coefficients_train.csv", "rb"), delimiter=",")
 labels_train = np.loadtxt(open("labels_train_revised.csv","rb"), delimiter=",")
-images_test = np.loadtxt(open("temps_pictures_test.csv", "rb"), delimiter=",")
+series_test = np.loadtxt(open("fourier_coefficients_test.csv", "rb"), delimiter=",")
 labels_test = np.loadtxt(open("labels_test_revised.csv", "rb"), delimiter=",")
 
-# Create new numpy array to store reshaped images
-images_train_reshape = np.zeros((numb_train,1,37,96))
-images_test_reshape = np.zeros((numb_test,1,37,96))
-
-labels_train_reshape = np.zeros((numb_train,2))
-
-# Reshape training images
-for i in range(numb_train):
-	images_train_reshape[i,0,:,:] = np.reshape(images_train[37*i:37*(i+1),:],(1,37,96))
-	if (labels_train[i] == 0):
-		labels_train_reshape[i,0] = 1
-	else:
-		labels_train_reshape[i,1] = 1
-
-# Reshape test images
-for i in range(numb_test):
-	images_test_reshape[i,0,:,:] = np.reshape(images_test[37*i:37*(i+1),:],(1,37,96))
-
 # Change numpy arrays of PyTorch tensors
-images_train = torch.Tensor(images_train_reshape)
+series_train = torch.Tensor(np.transpose(series_train))
 labels_train = torch.Tensor(labels_train)
-images_test = torch.Tensor(images_test_reshape)
+series_test = torch.Tensor(np.transpose(series_test))
 labels_test = torch.Tensor(labels_test)
 
+print(np.shape(series_train))
+print(np.shape(labels_train))
+print(np.shape(series_test))
+print(np.shape(labels_test))
+
 # Unite features and labels
-training_set = torch.utils.data.TensorDataset(images_train,labels_train)
-test_set = torch.utils.data.TensorDataset(images_test,labels_test)
+training_set = torch.utils.data.TensorDataset(series_train,labels_train)
+test_set = torch.utils.data.TensorDataset(series_test,labels_test)
 
 # Create data loader
 train_loader = torch.utils.data.DataLoader(training_set,batch_size=30, shuffle=True,num_workers=4)
@@ -96,7 +83,7 @@ net = Net()
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.5)
 
-for epoch in range(15):  # loop over the dataset multiple times
+for epoch in range(200):  # loop over the dataset multiple times
 	running_loss = 0.0
 	for i, data in enumerate(train_loader,0):
         	# get the inputs
@@ -119,15 +106,16 @@ for epoch in range(15):  # loop over the dataset multiple times
 print('Finished Training')
 
 dataiter = iter(test_loader)
-images, labels = dataiter.next()
+series, labels = dataiter.next()
 
-# print images
-imshow(torchvision.utils.make_grid(images))
+# print series
+x = range(batch)
+plt.plot(x,series.numpy())
 indices = labels.numpy()
 print(int(indices[0]))
 print('GroundTruth: ', ' '.join('%5s' % classes[int(indices[j])] for j in range(4)))
 
-outputs = net(images)
+outputs = net(series)
 
 _, predicted = torch.max(outputs, 1)
 
